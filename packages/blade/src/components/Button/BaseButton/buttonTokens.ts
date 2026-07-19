@@ -294,10 +294,10 @@ const buttonPadding: Record<
 };
 
 const buttonBorderRadius = {
-  xsmall: 'small',
-  small: 'small',
-  medium: 'small',
-  large: 'medium',
+  xsmall: 'max',
+  small: 'max',
+  medium: 'max',
+  large: 'max',
 } as const;
 
 const buttonIconOnlyHeightWidth = {
