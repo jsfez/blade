@@ -1,0 +1,59 @@
+name: Argos
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Lets the Argos CLI authenticate with a short-lived OpenID Connect token,
+  # so this workflow needs no secret of its own.
+  id-token: write
+
+jobs:
+  visual-tests:
+    name: Visual tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Same Node version as `blade-chromatic.yml` uses to build the Storybook.
+      - name: Use Node v20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.5
+
+      - name: Setup Cache & Install Dependencies
+        uses: ./.github/actions/install-dependencies
+        env:
+          # The Argos packages declare `engines.node >= 22`, which Yarn 1
+          # enforces at install time. They only ever run in the Node 24 step
+          # below, so the check is advisory here.
+          YARN_IGNORE_ENGINES: true
+
+      # `scripts/buildStorybook.sh` without its two copy steps: the dashboard
+      # and the Svelte Storybook are static routes of the published site, not
+      # stories, so they carry no snapshots.
+      - name: Generate docs lockfile
+        run: yarn generate-docs-lockfile
+
+      - name: Build Storybook
+        working-directory: packages/blade
+        run: npx cross-env FRAMEWORK=REACT storybook build -c ./.storybook/react -o storybook-site --quiet
+
+      # The Argos reporter requires Node >= 22.
+      - name: Use Node v24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Argos
+        run: npx playwright test -c argos/playwright.config.ts
